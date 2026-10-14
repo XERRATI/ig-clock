@@ -1,0 +1,27 @@
+name: watchdog
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check both machines, kick if silent 75+ min
+        run: |
+          PAT="${{ secrets.DISPATCH_PAT }}"
+          for REPO in ig-clock trinity-bot; do
+            LAST=$(curl -s -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/XERRATI/$REPO/actions/runs?per_page=1" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['workflow_runs'][0]['created_at'] if d.get('workflow_runs') else 'NONE')")
+            AGE=999
+            if [ "$LAST" != "NONE" ]; then
+              AGE=$(( ( $(date -u +%s) - $(date -u -d "$LAST" +%s) ) / 60 ))
+            fi
+            echo "$REPO last run: $LAST (${AGE}m ago)"
+            if [ "$AGE" -gt 75 ]; then
+              if [ "$REPO" = "ig-clock" ]; then WF=clock.yml; else WF=autopost.yml; fi
+              curl -s -X POST "https://api.github.com/repos/XERRATI/$REPO/actions/workflows/$WF/dispatches" \
+                -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" -d '{"ref":"main"}'
+              echo "KICKED $REPO (silent too long)"
+            fi
+          done

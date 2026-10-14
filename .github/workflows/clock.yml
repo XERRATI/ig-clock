@@ -1,0 +1,23 @@
+name: clock
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 * * * *"
+jobs:
+  kick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: kick trinity-bot
+        run: |
+          curl -s -X POST "https://api.github.com/repos/XERRATI/trinity-bot/actions/workflows/autopost.yml/dispatches" \
+            -H "Authorization: Bearer ${{ secrets.DISPATCH_PAT }}" \
+            -H "Accept: application/vnd.github+json" -d '{"ref":"main"}'
+          echo "kicked trinity-bot at $(date -u +%H:%M)"
+      - name: wait 59.5 min
+        run: sleep 3570
+      - name: kick self (hourly chain)
+        run: |
+          curl -s -X POST "https://api.github.com/repos/XERRATI/ig-clock/actions/workflows/clock.yml/dispatches" \
+            -H "Authorization: Bearer ${{ secrets.DISPATCH_PAT }}" \
+            -H "Accept: application/vnd.github+json" -d '{"ref":"main"}'
+          echo "chained next hour at $(date -u +%H:%M)"
